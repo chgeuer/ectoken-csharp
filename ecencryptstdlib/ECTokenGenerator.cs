@@ -37,7 +37,7 @@ namespace ecencryptstdlib
                 stringChars[i] = chars[_rand.Next(chars.Length)];
             }
 
-            string randomString = new String(stringChars);
+            string randomString = new(stringChars);
             return randomString;
         }
 
@@ -103,11 +103,11 @@ namespace ecencryptstdlib
         string deniedProtocol = null,
         string allowedUrls = null)
         {
-            StringBuilder token = new StringBuilder();
+            StringBuilder token = new();
             /// ec_expire=1185943200&ec_clientip=111.11.111.11&ec_country_allow=US&ec_ref_allow=ec1.com"
             /// php -d extension=.libs/ectoken.so example.php
             /// php -d extension=.libs/ectoken.so -r '$token = ectoken_encrypt_token("12345678", "ec_expire=1185943200&ec_clientip=111.11.111.11&ec_country_allow=US&ec_ref_allow=ec1.com"); echo $token;'
-            TimeSpan t = expirationTime - new DateTime(1970, 1, 1);
+            TimeSpan t = expirationTime.Subtract(new DateTime(1970, 1, 1));
             int epoch = (int)t.TotalSeconds;
             token.Append($"ec_expire={epoch}");
             if (!string.IsNullOrEmpty(clientIPAddress)) token.Append($"&ec_clientip={clientIPAddress}");
@@ -122,7 +122,7 @@ namespace ecencryptstdlib
         }
 
         #region Encrypt V3-AESGCM
-        public string EncryptV3(String strKey, String strToken, bool blnVerbose)
+        public string EncryptV3(string strKey, string strToken, bool blnVerbose)
         {
             if (strToken.Length > 512)
                 throw new ArgumentException("Token exceeds maximum of 512 characters.");
@@ -140,21 +140,20 @@ namespace ecencryptstdlib
             //key to SHA256
             SHA256 sha256 = SHA256.Create();
             byte[] arrKey = sha256.ComputeHash(Encoding.UTF8.GetBytes(strKey));
-            string encrypted = AESGCMEncrypt(strToken, arrKey, blnVerbose);
-            return encrypted;
+            return AESGCMEncrypt(strToken, arrKey);
         }
 
-        public string DecryptV3(String strKey, String strToken, bool blnVerbose)
+        public string DecryptV3(string strKey, string strToken, bool blnVerbose)
         {
             if (blnVerbose)
-                Debug.WriteLine("Token before decryption :  " + strToken);
+                Debug.WriteLine($"Token before decryption : {strToken}");
 
             //key to SHA256
             SHA256 sha256 = SHA256.Create();
             byte[] arrKey = sha256.ComputeHash(Encoding.UTF8.GetBytes(strKey));
             string decrypted = AESGCMDecrypt(strToken, arrKey, blnVerbose);
             if (blnVerbose)
-                Debug.WriteLine("Token after decryption :  " + decrypted);
+                Debug.WriteLine($"Token after decryption : {decrypted}");
             return decrypted;
         }
 
@@ -170,15 +169,14 @@ namespace ecencryptstdlib
         /// <remarks>
         /// Adds overhead of (Optional-Payload + BlockSize(16) + Message +  HMac-Tag(16)) * 1.33 Base64
         /// </remarks>
-        private string AESGCMEncrypt(string strToken, byte[] key, bool blnVerbose)
+        private string AESGCMEncrypt(string strToken, byte[] key)
         {
             if (string.IsNullOrEmpty(strToken))
-                throw new ArgumentException("Secret Message Required!", "secretMessage");
+                throw new ArgumentException("Secret Message Required!",
+                                            nameof(strToken));
 
             byte[] plainText = Encoding.UTF8.GetBytes(strToken);
-            byte[] cipherText = null;
-            cipherText = AESGCMEncrypt(plainText, key, blnVerbose);
-
+            byte[] cipherText = AESGCMEncrypt(plainText, key);
             return base64urlencode(cipherText);
         }
 
@@ -191,36 +189,34 @@ namespace ecencryptstdlib
         /// <remarks>
         /// Adds overhead of (Optional-Payload + BlockSize(16) + Message +  HMac-Tag(16)) * 1.33 Base64
         /// </remarks>
-        private byte[] AESGCMEncrypt(byte[] strToken, byte[] key, bool blnVerbose)
+        private byte[] AESGCMEncrypt(byte[] strToken, byte[] key)
         {
             //User Error Checks
             if (key == null || key.Length != KeyBitSize / 8)
-                throw new ArgumentException(String.Format("Key needs to be {0} bit!", KeyBitSize), "key");
+                throw new ArgumentException($"Key needs to be {KeyBitSize} bit!", nameof(key));
 
             //Using random nonce large enough not to repeat
             byte[] iv = new byte[NonceBitSize / 8];
             Random.NextBytes(iv, 0, iv.Length);
-            var cipher = new GcmBlockCipher(new AesFastEngine());
+            var cipher = new GcmBlockCipher(new AesEngine());
             // var parameters = new AeadParameters(new KeyParameter(key), MacBitSize, nonce, nonSecretPayload);
-            KeyParameter keyParam = new KeyParameter(key);
+            KeyParameter keyParam = new (key);
             ICipherParameters parameters = new ParametersWithIV(keyParam, iv);
             cipher.Init(true, parameters);
             //Generate Cipher Text With Auth Tag           
             var cipherText = new byte[cipher.GetOutputSize(strToken.Length)];
             var len = cipher.ProcessBytes(strToken, 0, strToken.Length, cipherText, 0);
-            int len2 = cipher.DoFinal(cipherText, len);
+            _ = cipher.DoFinal(cipherText, len);
             //Assemble Message
-            using (var combinedStream = new MemoryStream())
+            using var combinedStream = new MemoryStream();
+            using (var binaryWriter = new BinaryWriter(combinedStream))
             {
-                using (var binaryWriter = new BinaryWriter(combinedStream))
-                {
-                    //Prepend Nonce
-                    binaryWriter.Write(iv);
-                    //Write Cipher Text
-                    binaryWriter.Write(cipherText);
-                }
-                return combinedStream.ToArray();
+                //Prepend Nonce
+                binaryWriter.Write(iv);
+                //Write Cipher Text
+                binaryWriter.Write(cipherText);
             }
+            return combinedStream.ToArray();
         }
 
         /// <summary>
@@ -232,10 +228,9 @@ namespace ecencryptstdlib
         private string AESGCMDecrypt(string encryptedMessage, byte[] key, bool blnVerbose)
         {
             if (string.IsNullOrEmpty(encryptedMessage))
-                throw new ArgumentException("Encrypted Message Required!", "encryptedMessage");
+                throw new ArgumentException("Encrypted Message Required!", nameof(encryptedMessage));
             var cipherText = base64urldecode(encryptedMessage);
-            byte[] plaintext = null;
-            plaintext = AESGCMDecrypt(cipherText, key, blnVerbose);
+            byte[] plaintext = AESGCMDecrypt(cipherText, key, blnVerbose);
             return plaintext == null ? null : Encoding.UTF8.GetString(plaintext);
         }
 
@@ -250,10 +245,10 @@ namespace ecencryptstdlib
         {
             //User Error Checks
             if (key == null || key.Length != KeyBitSize / 8)
-                throw new ArgumentException(String.Format("Key needs to be {0} bit!", KeyBitSize), "key");
+                throw new ArgumentException($"Key needs to be {KeyBitSize} bit!", nameof(key));
 
             if (encryptedMessage == null || encryptedMessage.Length == 0)
-                throw new ArgumentException("Encrypted Message Required!", "encryptedMessage");
+                throw new ArgumentException("Encrypted Message Required!", nameof(encryptedMessage));
 
             using (var cipherStream = new MemoryStream(encryptedMessage))
             using (var cipherReader = new BinaryReader(cipherStream))
@@ -261,8 +256,8 @@ namespace ecencryptstdlib
                 //Grab Nonce
                 var iv = cipherReader.ReadBytes(NonceBitSize / 8);
 
-                var cipher = new GcmBlockCipher(new AesFastEngine());
-                KeyParameter keyParam = new KeyParameter(key);
+                var cipher = new GcmBlockCipher(new AesEngine());
+                KeyParameter keyParam = new (key);
                 ICipherParameters parameters = new ParametersWithIV(keyParam, iv);
                 cipher.Init(false, parameters);
 
@@ -302,8 +297,7 @@ namespace ecencryptstdlib
                 case 2: s += "=="; break; // Two pad chars
                 case 3: s += "="; break; // One pad char
                 default:
-                    throw new System.Exception(
-             "Illegal base64url string!");
+                    throw new Exception("Illegal base64url string!");
             }
             return Convert.FromBase64String(s); // Standard base64 decoder
         }

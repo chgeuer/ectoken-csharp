@@ -1,18 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <TargetFramework>netstandard1.4</TargetFramework>
-    <PackageProjectUrl>https://github.com/VerizonDigital/ectoken</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/VerizonDigital/ectoken/blob/master/LICENSE.txt</PackageLicenseUrl>
-    <PackageIconUrl>https://avatars1.githubusercontent.com/u/12649886?s=200&amp;v=4</PackageIconUrl>
-    <RepositoryUrl>https://github.com/VerizonDigital/ectoken</RepositoryUrl>
+    <TargetFramework>net5.0</TargetFramework>
     <Authors>Verizon Digital Media Services</Authors>
-    <Product>Verizon Digital Media Services</Product>
-    <PackageId>ECToken</PackageId>
+    <Company>Verizon Digital Media Services</Company>
+    <PackageProjectUrl>https://github.com/VerizonDigital/ectoken</PackageProjectUrl>
+   <PackageLicenseUrl>https://github.com/EdgeCast/ectoken/blob/master/LICENSE-2.0.txt</PackageLicenseUrl>
   </PropertyGroup>
-  
   <ItemGroup>
-    <PackageReference Include="Portable.BouncyCastle" Version="1.8.1.2" />
+    <PackageReference Include="BouncyCastle.NetCore" Version="1.8.8" />
   </ItemGroup>
-
 </Project>

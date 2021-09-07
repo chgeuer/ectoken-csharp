@@ -1,7 +1,6 @@
-﻿using System;
-
-namespace ECToken.Tests.Utils
+﻿namespace ECToken.Tests.Utils
 {
+    using System;
     public static class DateTimeExtensions
     {
         public static int FromEpoch(this DateTime expirationTime)

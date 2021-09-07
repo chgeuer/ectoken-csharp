@@ -1,11 +1,11 @@
-﻿using System;
-using ecencryptstdlib;
-using ECToken.Tests.Utils;
-using Xunit;
-
-namespace ECToken.Tests.EncryptLibTests
+﻿namespace ECToken.Tests.EncryptLibTests
 {
-    
+    using ecencryptstdlib;
+    using ECToken.Tests.Utils;
+    using System;
+    using Xunit;
+
+
     public class ECTokenGeneratorTests
     {
         [Fact]
@@ -89,6 +89,5 @@ namespace ECToken.Tests.EncryptLibTests
             //assert
             Assert.IsType<string>(random);
         }
-
     }
 }

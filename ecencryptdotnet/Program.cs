@@ -13,17 +13,15 @@
 * limitations under the License.
 */
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Security.Cryptography;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Engines;
-using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Modes;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
+using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ec_encrypt
 {
@@ -51,7 +49,7 @@ namespace ec_encrypt
                 if (args.Length == 1)
                 {
 
-                    System.Console.WriteLine("EC Token encryption and decryption utility.  Version: 3.0.0");
+                    Console.WriteLine("EC Token encryption and decryption utility.  Version: 3.0.0");
                     Environment.Exit(0);
                 }
                 
@@ -95,13 +93,13 @@ namespace ec_encrypt
                         strResult = EncryptV3(strKey, strToken, blnVerbose);
 
                         if (string.IsNullOrEmpty(strResult))
-                            System.Console.WriteLine("Failed to encrypt token");
+                            Console.WriteLine("Failed to encrypt token");
                     }
-                    catch (System.Exception ex)
+                    catch (Exception ex)
                     {
                         if (blnVerbose)
                         {
-                            System.Console.WriteLine("Exception occured while encrypting token" + ex.Message);
+                            Console.WriteLine("Exception occured while encrypting token" + ex.Message);
                             Environment.Exit(1);
                         }
                     }
@@ -116,34 +114,34 @@ namespace ec_encrypt
                         strResult = DecryptV3(strKey, strToken, blnVerbose);
                         if (string.IsNullOrEmpty(strResult))
                         {
-                            System.Console.WriteLine("Failed to decrypt token.");
+                            Console.WriteLine("Failed to decrypt token.");
                         }
                     }
-                    catch (System.Exception ex)
+                    catch (Exception ex)
                     {
                         if (blnVerbose)
-                            System.Console.WriteLine("Exception occured while encrypting token" + ex.Message);                        
+                            Console.WriteLine("Exception occured while encrypting token" + ex.Message);                        
                     }
                 }
 
                 if (blnVerbose)
                 {
-                    System.Console.WriteLine("----------------------------------------------------------------");                 
+                    Console.WriteLine("----------------------------------------------------------------");                 
                 }
 
                 if (!string.IsNullOrEmpty(strResult))
                 {
-                    System.Console.WriteLine(strResult);
+                    Console.WriteLine(strResult);
                 }
                 else
                 {
-                    System.Console.WriteLine("Failed to encrypt/decrypt token");
+                    Console.WriteLine("Failed to encrypt/decrypt token");
                     Environment.Exit(1);
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                System.Console.WriteLine("Exception occured while encrypting/decrypting token" + ex.Message);
+                Console.WriteLine($"Exception occured while encrypting/decrypting token{ex.Message}");
             }
         }
 
@@ -181,10 +179,10 @@ namespace ec_encrypt
 
             // if verbose is turned on, show what is about to be encrypted
             if (blnVerbose)            
-                System.Console.WriteLine("Token before encryption :  " + strToken);            
+                Console.WriteLine($"Token before encryption :  {strToken}");            
 
             //key to SHA256
-            SHA256 sha256 = SHA256Managed.Create();
+            SHA256 sha256 = SHA256.Create();
             byte[] arrKey = sha256.ComputeHash(Encoding.UTF8.GetBytes(strKey));
             string encrypted = AESGCMEncrypt(strToken, arrKey,blnVerbose);     
             return encrypted;
@@ -192,11 +190,11 @@ namespace ec_encrypt
 
         public static string DecryptV3(String strKey, String strToken, bool blnVerbose)
         {          
-            if (blnVerbose)            
-                System.Console.WriteLine("Token before decryption :  " + strToken);           
+            if (blnVerbose)
+                Console.WriteLine($"Token before decryption :  {strToken}");           
 
             //key to SHA256
-            SHA256 sha256 = SHA256Managed.Create();
+            SHA256 sha256 = SHA256.Create();
             byte[] arrKey = sha256.ComputeHash(Encoding.UTF8.GetBytes(strKey));            
             string decrypted = AESGCMDecrypt(strToken, arrKey,blnVerbose);
             if (blnVerbose)            
@@ -219,7 +217,7 @@ namespace ec_encrypt
         public static string AESGCMEncrypt(string strToken, byte[] key, bool blnVerbose)
         {
             if (string.IsNullOrEmpty(strToken))
-                throw new ArgumentException("Secret Message Required!", "secretMessage");
+                throw new ArgumentException("Secret Message Required!", nameof(strToken));
 
             byte[] plainText = Encoding.UTF8.GetBytes(strToken);
             byte[] cipherText = AESGCMEncrypt(plainText, key,blnVerbose);
@@ -240,14 +238,14 @@ namespace ec_encrypt
         {
             //User Error Checks
             if (key == null || key.Length != KeyBitSize / 8)
-                throw new ArgumentException(String.Format("Key needs to be {0} bit!", KeyBitSize), "key");
+                throw new ArgumentException($"Key needs to be {KeyBitSize} bit!", nameof(key));
 
             //Using random nonce large enough not to repeat
             byte[] iv = new byte[NonceBitSize / 8];
             Random.NextBytes(iv, 0, iv.Length);
-            var cipher = new GcmBlockCipher(new AesFastEngine());                        
+            var cipher = new GcmBlockCipher(new AesEngine());                        
            // var parameters = new AeadParameters(new KeyParameter(key), MacBitSize, nonce, nonSecretPayload);
-            KeyParameter keyParam = new KeyParameter(key);
+            KeyParameter keyParam = new(key);
             ICipherParameters parameters = new ParametersWithIV(keyParam, iv);
             cipher.Init(true, parameters);
              //Generate Cipher Text With Auth Tag           
@@ -255,17 +253,15 @@ namespace ec_encrypt
             var len = cipher.ProcessBytes(strToken, 0, strToken.Length, cipherText, 0);
             int len2 = cipher.DoFinal(cipherText, len);
             //Assemble Message
-            using (var combinedStream = new MemoryStream())
+            using var combinedStream = new MemoryStream();
+            using (var binaryWriter = new BinaryWriter(combinedStream))
             {
-                using (var binaryWriter = new BinaryWriter(combinedStream))
-                {                  
-                    //Prepend Nonce
-                    binaryWriter.Write(iv);
-                    //Write Cipher Text
-                    binaryWriter.Write(cipherText);         
-                }
-                return combinedStream.ToArray();
+                //Prepend Nonce
+                binaryWriter.Write(iv);
+                //Write Cipher Text
+                binaryWriter.Write(cipherText);
             }
+            return combinedStream.ToArray();
         }
 
         /// <summary>
@@ -277,7 +273,7 @@ namespace ec_encrypt
         public static string AESGCMDecrypt(string encryptedMessage, byte[] key, bool blnVerbose)
         {
             if (string.IsNullOrEmpty(encryptedMessage))
-                throw new ArgumentException("Encrypted Message Required!", "encryptedMessage");
+                throw new ArgumentException("Encrypted Message Required!", nameof(encryptedMessage));
             var cipherText = base64urldecode(encryptedMessage);
             var plaintext = AESGCMDecrypt(cipherText, key,blnVerbose);
             return plaintext == null ? null : Encoding.UTF8.GetString(plaintext);
@@ -294,35 +290,33 @@ namespace ec_encrypt
         {
             //User Error Checks
             if (key == null || key.Length != KeyBitSize / 8)
-                throw new ArgumentException(String.Format("Key needs to be {0} bit!", KeyBitSize), "key");
+                throw new ArgumentException($"Key needs to be {KeyBitSize} bit!", nameof(key));
 
             if (encryptedMessage == null || encryptedMessage.Length == 0)
-                throw new ArgumentException("Encrypted Message Required!", "encryptedMessage");
+                throw new ArgumentException("Encrypted Message Required!", nameof(encryptedMessage));
 
-            using (var cipherStream = new MemoryStream(encryptedMessage))
-            using (var cipherReader = new BinaryReader(cipherStream)){
-                //Grab Nonce
-                var iv = cipherReader.ReadBytes(NonceBitSize / 8);
+            using var cipherStream = new MemoryStream(encryptedMessage);
+            using var cipherReader = new BinaryReader(cipherStream);                //Grab Nonce
+            var iv = cipherReader.ReadBytes(NonceBitSize / 8);
 
-                var cipher = new GcmBlockCipher(new AesFastEngine());
-                KeyParameter keyParam = new KeyParameter(key);
-                ICipherParameters parameters = new ParametersWithIV(keyParam, iv);
-                cipher.Init(false, parameters);
+            var cipher = new GcmBlockCipher(new AesEngine());
+            KeyParameter keyParam = new(key);
+            ICipherParameters parameters = new ParametersWithIV(keyParam, iv);
+            cipher.Init(false, parameters);
 
-                //Decrypt Cipher Text
-                var cipherText = cipherReader.ReadBytes(encryptedMessage.Length  - iv.Length);
-                var plainText = new byte[cipher.GetOutputSize(cipherText.Length)];
-                try
-                {
-                    var len = cipher.ProcessBytes(cipherText, 0, cipherText.Length, plainText, 0);
-                    cipher.DoFinal(plainText, len);
-                }
-                catch (InvalidCipherTextException)
-                {
-                    return null;
-                }
-                return plainText;
+            //Decrypt Cipher Text
+            var cipherText = cipherReader.ReadBytes(encryptedMessage.Length - iv.Length);
+            var plainText = new byte[cipher.GetOutputSize(cipherText.Length)];
+            try
+            {
+                var len = cipher.ProcessBytes(cipherText, 0, cipherText.Length, plainText, 0);
+                cipher.DoFinal(plainText, len);
             }
+            catch (InvalidCipherTextException)
+            {
+                return null;
+            }
+            return plainText;
         }
 
         static string base64urlencode(byte[] arg)
@@ -344,7 +338,7 @@ namespace ec_encrypt
                 case 0: break; // No pad chars in this case
                 case 2: s += "=="; break; // Two pad chars
                 case 3: s += "="; break; // One pad char
-                default: throw new System.Exception(
+                default: throw new Exception(
                   "Illegal base64url string!");
             }
             return Convert.FromBase64String(s); // Standard base64 decoder

@@ -1,10 +1,8 @@
-﻿using System;
-using ecencryptstdlib;
-using ECToken.Tests.Utils;
-using Xunit;
-
-namespace ECToken.Tests.EncryptLibTests
+﻿namespace ECToken.Tests.EncryptLibTests
 {
+    using ecencryptstdlib;
+    using Xunit;
+
     public class ECTokenGeneratorDecryptionTests
     {
         [Fact]
@@ -21,8 +19,5 @@ namespace ECToken.Tests.EncryptLibTests
             Assert.NotNull(token);
             Assert.Equal("ec_expire=1522944645&ec_clientip=0.0.0.0&ec_country_allow=US&ec_country_deny=NA&ec_ref_allow=1234&ec_ref_deny=456", token);
         }
-
-
-
     }
 }
