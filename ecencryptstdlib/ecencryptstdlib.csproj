@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <Authors>Verizon Digital Media Services</Authors>
-    <Company>Verizon Digital Media Services</Company>
-    <PackageProjectUrl>https://github.com/VerizonDigital/ectoken</PackageProjectUrl>
+    <Authors>EdgeCast / Verizon Digital Media Services</Authors>
+    <Company>EdgeCast / Verizon Digital Media Services</Company>
+    <PackageProjectUrl>https://github.com/EdgeCast/ectoken</PackageProjectUrl>
    <PackageLicenseUrl>https://github.com/EdgeCast/ectoken/blob/master/LICENSE-2.0.txt</PackageLicenseUrl>
   </PropertyGroup>
   <ItemGroup>
