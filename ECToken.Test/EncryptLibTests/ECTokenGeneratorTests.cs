@@ -15,7 +15,7 @@
 
             var expireTime = DateTime.Now.AddMilliseconds(300);
             string clientIp = Faker.Internet.IPv4Address();
-            ECTokenGenerator.Key key = new (Faker.Name.FullName());
+            EdgeCastKey key = new (Faker.Name.FullName());
 
             //act
             var token = ECTokenGenerator.EncryptV3(
@@ -37,7 +37,7 @@
         {
             //arrange
             var expireTime = DateTime.Now.AddMilliseconds(300);
-            ECTokenGenerator.Key key = new (Faker.Name.FullName());
+            EdgeCastKey key = new (Faker.Name.FullName());
 
             //act
             var token = ECTokenGenerator.EncryptV3(

@@ -11,6 +11,44 @@ using System.Text;
 
 namespace ecencryptstdlib
 {
+    public class EdgeCastKey
+    {
+        public EdgeCastKey(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                throw new ArgumentNullException(paramName: nameof(value));
+            }
+
+            using var sha256 = SHA256.Create();
+            byte[] keyBytes = sha256.ComputeHash(value.ToUTF8Bytes());
+
+            KeyParameter = new(keyBytes);
+        }
+
+        public KeyParameter KeyParameter { get; }
+    }
+
+    public class EdgeCastToken
+    {
+        public EdgeCastToken(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                throw new ArgumentNullException(paramName: nameof(value));
+            }
+            if (value.Length > 512)
+            {
+                throw new ArgumentException("Token exceeds maximum of 512 characters.", paramName: nameof(value));
+            }
+
+            Value = value;
+        }
+
+        public string Value { get; }
+
+        public static EdgeCastToken Create(string value) => new(value);
+    }
 
     /// <summary>
     /// ECTokenGenerator for .NET Standard Library 1.4
@@ -18,47 +56,7 @@ namespace ecencryptstdlib
     /// </summary>
     public static class ECTokenGenerator
     {
-        public class Key
-        {
-            internal static readonly int KeyBitSize = 256;
-
-            public Key(string value)
-            {
-                if (string.IsNullOrEmpty(value)) throw new ArgumentNullException(paramName: nameof(value));
-
-                using var sha256 = SHA256.Create();
-                byte[] keyBytes = sha256.ComputeHash(value.ToUTF8Bytes());
-
-                //User Error Checks
-                if (keyBytes == null || keyBytes.Length != KeyBitSize / 8)
-                    throw new ArgumentException($"Key needs to be {KeyBitSize} bit!", nameof(value));
-
-                KeyParameter = new(keyBytes);
-            }
-
-            internal KeyParameter KeyParameter { get; }
-        }
-
-        public class Token
-        {
-            internal static readonly int KeyBitSize = 256;
-
-            public Token(string value)
-            {
-                if (string.IsNullOrEmpty(value)) throw new ArgumentNullException(paramName: nameof(value));
-                if (value.Length > 512) throw new ArgumentException("Token exceeds maximum of 512 characters.", paramName: nameof(value));
-
-                Value = value;
-            }
-
-            public string Value { get; }
-
-            public static Token Create(string value) => new(value);
-        }
-
-        private static Token AsToken(this string val) => new(val);
-
-
+        private static EdgeCastToken AsToken(this string val) => new(val);
 
         /// <summary>
         /// This helper methods allows to create expiring CDN encryption tokens
@@ -75,7 +73,7 @@ namespace ecencryptstdlib
         /// <param name="deniedProtocol">Denies requests from specified protocol, Example: "http" or "https" </param>
         /// <param name="allowedUrls">allows you to tailor tokens to a particular asset or path. It restricts access to requests whose URL start with a specific relative path. You can input multiple paths separating each path with a comma. URLs are case-sensitive. Depending on the requirement, you can set up different value to provide different level of access</param>
         /// <returns></returns>
-        public static Token EncryptV3(Key key,
+        public static EdgeCastToken EncryptV3(EdgeCastKey key,
                 TimeSpan expirationTimeSpan,
                 string clientIPAddress = null,
                 string allowedCountries = null,
@@ -114,7 +112,7 @@ namespace ecencryptstdlib
         /// <param name="deniedProtocol">Denies requests from specified protocol, Example: "http" or "https" </param>
         /// <param name="allowedUrls">allows you to tailor tokens to a particular asset or path. It restricts access to requests whose URL start with a specific relative path. You can input multiple paths separating each path with a comma. URLs are case-sensitive. Depending on the requirement, you can set up different value to provide different level of access</param>
         /// <returns></returns>
-        public static Token EncryptV3(Key key,
+        public static EdgeCastToken EncryptV3(EdgeCastKey key,
             DateTime expirationTime,
             string clientIPAddress = null,
             string allowedCountries = null,
@@ -131,7 +129,7 @@ namespace ecencryptstdlib
 
             static string getEpoch(DateTime t) => ((int)t.Subtract(new DateTime(1970, 1, 1)).TotalSeconds).ToString();
 
-            Token t = new(string.Join('&', new[] {
+            EdgeCastToken t = new(string.Join('&', new[] {
                 ("ec_expire",        getEpoch(expirationTime)),
                 ("ec_clientip",      clientIPAddress),
                 ("ec_country_allow", allowedCountries), ("ec_country_deny",  deniedCountries),
@@ -146,16 +144,14 @@ namespace ecencryptstdlib
             return t.EncryptV3(key);
         }
 
-        #region Encrypt V3-AESGCM
-
         // make sure the user didn't pass in ec_secure=1
         // older versions of ecencrypt required users to pass this in
         // current users should not pass in ec_secure
-        public static Token EncryptV3(this Token token, Key key)
+        public static EdgeCastToken EncryptV3(this EdgeCastToken token, EdgeCastKey key)
             => token
                 .Value
-                .Replace("ec_secure=1&", "")
                 .Replace("ec_secure=1", "")
+                .Replace("&&", "&")
                 .ToUTF8Bytes()
                 .AESGCMEncrypt(key)
                 .ToBase64()
@@ -167,13 +163,15 @@ namespace ecencryptstdlib
         /// <param name="token">The encrypted message.</param>
         /// <param name="key">The key.</param>        
         /// <returns>Decrypted Message</returns>
-        public static Token DecryptV3(this Token token, Key key)
+        public static EdgeCastToken DecryptV3(this EdgeCastToken token, EdgeCastKey key)
             => token
                 .Value
                 .FromBase64()
                 .AESGCMDecrypt(key)
                 .FromUTF8Bytes()
                 .AsToken();
+
+        #region Encrypt V3-AESGCM
 
         const int NonceByteSize = 12;
 
@@ -189,13 +187,12 @@ namespace ecencryptstdlib
         }
         private static readonly Func<byte[]> CreateIV = CreateIVCreator();
 
-
         /// <summary>Encryption And Authentication (AES-GCM) of a UTF8 string.</summary>
         /// <param name="strToken">Token to Encrypt.</param>
         /// <param name="key">The key.</param>         
         /// <returns>Encrypted Message</returns>
         /// <remarks>Adds overhead of (Optional-Payload + BlockSize(16) + Message +  HMac-Tag(16)) * 1.33 Base64</remarks>
-        private static byte[] AESGCMEncrypt(this byte[] strToken, Key key)
+        private static byte[] AESGCMEncrypt(this byte[] strToken, EdgeCastKey key)
         {
             byte[] iv = CreateIV();
             GcmBlockCipher cipher = new(new AesEngine());
@@ -206,7 +203,7 @@ namespace ecencryptstdlib
             var len = cipher.ProcessBytes(strToken, 0, strToken.Length, cipherText, 0);
             _ = cipher.DoFinal(cipherText, len);
             using MemoryStream combinedStream = new();
-            using (var binaryWriter = new BinaryWriter(combinedStream))
+            using (BinaryWriter binaryWriter = new (combinedStream))
             {
                 binaryWriter.Write(iv);
                 binaryWriter.Write(cipherText);
@@ -218,8 +215,10 @@ namespace ecencryptstdlib
         /// <param name="encryptedMessage">The encrypted message.</param>
         /// <param name="key">The key.</param>
         /// <returns>Decrypted Message</returns>
-        private static byte[] AESGCMDecrypt(this byte[] encryptedMessage, Key key)
+        public static byte[] AESGCMDecrypt(this byte[] encryptedMessage, EdgeCastKey key)
         {
+            Console.WriteLine(Convert.ToBase64String(encryptedMessage));
+            Console.WriteLine(Convert.ToBase64String(key.KeyParameter.GetKey()));
             try
             {
                 using MemoryStream cipherStream = new(encryptedMessage);
@@ -232,7 +231,7 @@ namespace ecencryptstdlib
                 cipher.Init(forEncryption: false, parameters: parameters);
 
                 //Decrypt Cipher Text
-                var cipherText = cipherReader.ReadBytes(encryptedMessage.Length - iv.Length);
+                var cipherText = cipherReader.ReadBytes(encryptedMessage.Length - NonceByteSize);
                 var plainText = new byte[cipher.GetOutputSize(cipherText.Length)];
                 var len = cipher.ProcessBytes(cipherText, 0, cipherText.Length, plainText, 0);
                 cipher.DoFinal(plainText, len);
