@@ -5,6 +5,7 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="EdgecastCrypto.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
